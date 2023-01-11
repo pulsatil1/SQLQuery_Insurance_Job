@@ -1,60 +1,59 @@
 
---Получаем средневзвешенную цену по всем товарам
+--Get the weighted average price for all products
 IF OBJECT_ID(N'tempdb..#TMP_Table', N'U') IS NOT NULL   
 DROP TABLE #TMP_Table;
-CREATE table #TMP_Table (Товар char(9), NewPrice numeric(14,2));	--Временная таблица для ускорения работы
+CREATE table #TMP_Table (Tovar char(9), NewPrice numeric(14,2));	--Temporary table to speed up work
 
 IF OBJECT_ID(N'tempdb..#TMP_InsPrice', N'U') IS NOT NULL   
 DROP TABLE #TMP_InsPrice;
-CREATE table #TMP_InsPrice (Tovar char(9), AvgPrice numeric(14,2));	--Временная таблица с ценами по всем товарам
+CREATE table #TMP_InsPrice (Tovar char(9), AvgPrice numeric(14,2));	--Temporary table with prices for all products
 	
 With TableOst as(
 	SELECT 
-		  Остатки.sp306 Товар
-		, Остатки.sp308 Серия  
-		, Round(Sum(sp313)/Sum(sp309),3) as Цена
-	FROM [BaseANR].[dbo].rg304 AS Остатки With (NOLOCK)
-		INNER JOIN [BaseANR].[dbo].sc111 AS Номенклатура With (NOLOCK) ON Номенклатура.ID = Остатки.sp306
-		INNER JOIN [BaseANR].[dbo].sc1106 AS ЛекСредства With (NOLOCK) ON ЛекСредства.ID = Номенклатура.sp1112
+		  РћСЃС‚Р°С‚РєРё.sp306 РўРѕРІР°СЂ
+		, РћСЃС‚Р°С‚РєРё.sp308 РЎРµСЂРёСЏ  
+		, Round(Sum(sp313)/Sum(sp309),3) as Р¦РµРЅР°
+	FROM [BaseANR].[dbo].rg304 AS РћСЃС‚Р°С‚РєРё With (NOLOCK)
+		INNER JOIN [BaseANR].[dbo].sc111 AS РќРѕРјРµРЅРєР»Р°С‚СѓСЂР° With (NOLOCK) ON РќРѕРјРµРЅРєР»Р°С‚СѓСЂР°.ID = РћСЃС‚Р°С‚РєРё.sp306
+		INNER JOIN [BaseANR].[dbo].sc1106 AS Р›РµРєРЎСЂРµРґСЃС‚РІР° With (NOLOCK) ON Р›РµРєРЎСЂРµРґСЃС‚РІР°.ID = РќРѕРјРµРЅРєР»Р°С‚СѓСЂР°.sp1112
 	WHERE 
-		--Остатки.PERIOD = dateadd(month,datediff(month,0,GetDate()),0)	--Начало месяца
-		Остатки.PERIOD = (SELECT MAX(Ост.PERIOD) FROM [BaseANR].[dbo].rg304 AS Ост With (NOLOCK))	--Для исключения проблем с точкой актуальности
-		AND Номенклатура.sp1445 = 0	
-	GROUP BY Остатки.sp306
-			,Остатки.sp308       
-	HAVING (Sum(Остатки.sp309) > 0)) 
+		РћСЃС‚Р°С‚РєРё.PERIOD = dateadd(month,datediff(month,0,GetDate()),0)	--beginning of the month
+		AND РќРѕРјРµРЅРєР»Р°С‚СѓСЂР°.sp1445 = 0	
+	GROUP BY РћСЃС‚Р°С‚РєРё.sp306
+			,РћСЃС‚Р°С‚РєРё.sp308       
+	HAVING (Sum(РћСЃС‚Р°С‚РєРё.sp309) > 0)) 
 	
 	insert into #TMP_Table
 	SELECT 
-		BaseTable.Товар as Товар,
+		BaseTable.РўРѕРІР°СЂ as Tovar,
 			CASE
-				WHEN Цена=TableMinPrice.МинЦена AND Цена<TableMaxPrice.МаксЦена THEN TableMaxPrice.МаксЦена
-				ELSE Цена
+				WHEN Р¦РµРЅР°=TableMinPrice.РњРёРЅР¦РµРЅР° AND Р¦РµРЅР°<TableMaxPrice.РњР°РєСЃР¦РµРЅР° THEN TableMaxPrice.РњР°РєСЃР¦РµРЅР°
+				ELSE Р¦РµРЅР°
 			END
 			as NewPrice
 	FROM TableOst as BaseTable
 		INNER JOIN (SELECT 
-						Товар,
-						MIN(Цена) as МинЦена
+						РўРѕРІР°СЂ,
+						MIN(Р¦РµРЅР°) as РњРёРЅР¦РµРЅР°
 					FROM TableOst
-					GROUP BY Товар
-		) as TableMinPrice ON BaseTable.Товар = TableMinPrice.Товар
+					GROUP BY РўРѕРІР°СЂ
+		) as TableMinPrice ON BaseTable.РўРѕРІР°СЂ = TableMinPrice.РўРѕРІР°СЂ
 		INNER JOIN (SELECT 
-						Товар,
-						MAX(Цена)/1.1 as МаксЦена
+						РўРѕРІР°СЂ,
+						MAX(Р¦РµРЅР°)/1.1 as РњР°РєСЃР¦РµРЅР°
 					FROM TableOst
-					GROUP BY Товар
-		) as TableMaxPrice ON BaseTable.Товар = TableMaxPrice.Товар;
+					GROUP BY РўРѕРІР°СЂ
+		) as TableMaxPrice ON BaseTable.РўРѕРІР°СЂ = TableMaxPrice.РўРѕРІР°СЂ;
 			
 	insert into #TMP_InsPrice 
 	Select
-		Товар as Tovar
+		Tovar
 		,Round(AVG(NewPrice),2)	as AvgPrice
 	FROM #TMP_Table
-	GROUP BY Товар;
+	GROUP BY Tovar;
 --
 
---КУРСОР ПО СТРАХОВЫМ
+--CURSOR ON INSURANCE
 declare @LgotaKod numeric(5,0)
 declare @PercentNum numeric(4,2)
 
@@ -68,20 +67,20 @@ for select
 open ins_cursor
 
 fetch next from ins_cursor into @LgotaKod,@PercentNum
---обход цикла
+--loop bypass
 while @@FETCH_STATUS=0
 begin
 	DELETE 
 	FROM [Service_ANR].[dbo].[pricetas]
-	WHERE ДатаПрайс = Cast(Cast(GETDATE() as date) as date)
-	and ЛьготаКод = @LgotaKod;
+	WHERE Р”Р°С‚Р°РџСЂР°Р№СЃ = Cast(Cast(GETDATE() as date) as date)
+	and Р›СЊРіРѕС‚Р°РљРѕРґ = @LgotaKod;
 	
 	INSERT INTO [Service_ANR].[dbo].[pricetas] 
-		([ДатаПрайс]
-       ,[ЛьготаКод]
-       ,[ИДТоварБаз]
-       ,[Товар]
-       ,[ЦенаРозн])
+		([Р”Р°С‚Р°РџСЂР°Р№СЃ]
+       ,[Р›СЊРіРѕС‚Р°РљРѕРґ]
+       ,[РР”РўРѕРІР°СЂР‘Р°Р·]
+       ,[РўРѕРІР°СЂ]
+       ,[Р¦РµРЅР°Р РѕР·РЅ])
 	SELECT 
 		Cast(Cast(GETDATE() as date) as date)
 		,@LgotaKod
@@ -100,5 +99,3 @@ end
 
 close ins_cursor
 deallocate ins_cursor
-	
-	
